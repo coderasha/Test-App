@@ -1,35 +1,52 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 
+type EmployeeRecord = {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  position: string;
+  salary?: number;
+  departmentId: number;
+  hireDate: Date;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 @Injectable()
 export class EmployeesService {
-  constructor(private prisma: PrismaService) {}
+  private readonly employees: EmployeeRecord[] = [];
+  private nextId = 1;
 
-  async create(createEmployeeDto: CreateEmployeeDto) {
-    return this.prisma.employee.create({
-      data: {
-        ...createEmployeeDto,
-        hireDate: new Date(createEmployeeDto.hireDate),
-      },
-      include: { department: true },
-    });
+  create(createEmployeeDto: CreateEmployeeDto): EmployeeRecord {
+    const now = new Date();
+    const employee: EmployeeRecord = {
+      id: this.nextId++,
+      firstName: createEmployeeDto.firstName,
+      lastName: createEmployeeDto.lastName,
+      email: createEmployeeDto.email,
+      phone: createEmployeeDto.phone,
+      position: createEmployeeDto.position,
+      salary: createEmployeeDto.salary,
+      departmentId: createEmployeeDto.departmentId,
+      hireDate: new Date(createEmployeeDto.hireDate),
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.employees.unshift(employee);
+    return employee;
   }
 
-  async findAll() {
-    return this.prisma.employee.findMany({
-      include: { department: true },
-      orderBy: { createdAt: 'desc' },
-    });
+  findAll(): EmployeeRecord[] {
+    return this.employees;
   }
 
-  async findOne(id: number) {
-    const employee = await this.prisma.employee.findUnique({
-      where: { id },
-      include: { department: true },
-    });
-
+  findOne(id: number): EmployeeRecord {
+    const employee = this.employees.find((entry) => entry.id === id);
     if (!employee) {
       throw new NotFoundException(`Employee with ID ${id} not found`);
     }
@@ -37,28 +54,44 @@ export class EmployeesService {
     return employee;
   }
 
-  async update(id: number, updateEmployeeDto: UpdateEmployeeDto) {
-    try {
-      const data: any = { ...updateEmployeeDto };
-      if (updateEmployeeDto.hireDate) {
-        data.hireDate = new Date(updateEmployeeDto.hireDate);
-      }
+  update(id: number, updateEmployeeDto: UpdateEmployeeDto): EmployeeRecord {
+    const employee = this.findOne(id);
 
-      return await this.prisma.employee.update({
-        where: { id },
-        data,
-        include: { department: true },
-      });
-    } catch (error) {
-      throw new NotFoundException(`Employee with ID ${id} not found`);
+    if (updateEmployeeDto.firstName !== undefined) {
+      employee.firstName = updateEmployeeDto.firstName;
     }
+    if (updateEmployeeDto.lastName !== undefined) {
+      employee.lastName = updateEmployeeDto.lastName;
+    }
+    if (updateEmployeeDto.email !== undefined) {
+      employee.email = updateEmployeeDto.email;
+    }
+    if (updateEmployeeDto.phone !== undefined) {
+      employee.phone = updateEmployeeDto.phone;
+    }
+    if (updateEmployeeDto.position !== undefined) {
+      employee.position = updateEmployeeDto.position;
+    }
+    if (updateEmployeeDto.salary !== undefined) {
+      employee.salary = updateEmployeeDto.salary;
+    }
+    if (updateEmployeeDto.departmentId !== undefined) {
+      employee.departmentId = updateEmployeeDto.departmentId;
+    }
+    if (updateEmployeeDto.hireDate !== undefined) {
+      employee.hireDate = new Date(updateEmployeeDto.hireDate);
+    }
+
+    employee.updatedAt = new Date();
+    return employee;
   }
 
-  async remove(id: number) {
-    try {
-      return await this.prisma.employee.delete({ where: { id } });
-    } catch (error) {
+  remove(id: number): void {
+    const index = this.employees.findIndex((entry) => entry.id === id);
+    if (index < 0) {
       throw new NotFoundException(`Employee with ID ${id} not found`);
     }
+
+    this.employees.splice(index, 1);
   }
 }
